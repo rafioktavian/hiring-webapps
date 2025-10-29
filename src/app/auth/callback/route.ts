@@ -5,11 +5,16 @@ export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url)
   const code = requestUrl.searchParams.get('code')
 
+  const redirectTo = requestUrl.origin + '/jobs' // Redirect to a specific page after login
+
   if (code) {
     const supabase = createClient()
-    await supabase.auth.exchangeCodeForSession(code)
+    const { error } = await supabase.auth.exchangeCodeForSession(code)
+    if (!error) {
+      return NextResponse.redirect(redirectTo)
+    }
   }
 
-  // URL to redirect to after sign in process completes
-  return NextResponse.redirect(requestUrl.origin)
+  // return the user to the redirecto url if there were any errors
+  return NextResponse.redirect(redirectTo)
 }
