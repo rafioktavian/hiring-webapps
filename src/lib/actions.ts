@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from './supabase/server';
 import { Database } from '@/types/supabase';
 import { z } from 'zod';
+import { createClient as createSupabaseAdminClient, type SupabaseClient } from '@supabase/supabase-js';
 
 // Helper function for error handling
 function handleError(error: Error, message: string) {
@@ -89,6 +90,59 @@ export async function deleteJob(id: string) {
   return { data: { message: 'Job deleted successfully' }, error: null };
 }
 
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const AVATAR_BUCKET = process.env.NEXT_PUBLIC_SUPABASE_AVATAR_BUCKET || 'avatars';
+let isAvatarBucketEnsured = false;
+let adminSupabaseClient: SupabaseClient | null = null;
+
+function getAdminSupabaseClient(): SupabaseClient | null {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    return null;
+  }
+
+  if (!adminSupabaseClient) {
+    adminSupabaseClient = createSupabaseAdminClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  }
+
+  return adminSupabaseClient;
+}
+
+async function ensureAvatarBucket(): Promise<void> {
+  if (isAvatarBucketEnsured) return;
+  const adminClient = getAdminSupabaseClient();
+  if (!adminClient) {
+    console.warn('Supabase avatar bucket could not be ensured: missing configuration.');
+    return;
+  }
+
+  try {
+    const { data: buckets, error: listError } = await adminClient.storage.listBuckets();
+
+    if (listError) {
+      console.error('Failed to list Supabase buckets', listError);
+      return;
+    }
+
+    const exists = buckets?.some((bucket) => bucket.name === AVATAR_BUCKET);
+    if (!exists) {
+      const { error: createError } = await adminClient.storage.createBucket(AVATAR_BUCKET, {
+        public: true,
+        fileSizeLimit: '5242880', // 5MB
+      });
+
+      if (createError) {
+        console.error('Failed to create avatar bucket', createError);
+        return;
+      }
+    }
+
+    isAvatarBucketEnsured = true;
+  } catch (error) {
+    console.error('Unexpected error ensuring avatar bucket', error);
+  }
+}
+
 // ====== Candidate Actions ======
 
 export async function getCandidatesByJobId(jobId: string) {
@@ -162,17 +216,52 @@ export async function uploadAvatar(formData: FormData) {
     return { data: null, error: { message: 'No file provided' } };
   }
 
-  const filename = `${Date.now()}-${file.name}`;
-  const { error: uploadError } = await supabase.storage.from('avatars').upload(filename, file);
-  
+  await ensureAvatarBucket();
+
+  const originalName = file.name ? file.name.toLowerCase() : 'capture.jpg';
+  const sanitizedName = originalName.replace(/[^a-z0-9.]+/g, '-');
+  const filename = `${Date.now()}-${sanitizedName}`;
+
+  const adminClient = getAdminSupabaseClient();
+  const storageClient = adminClient?.storage ?? supabase.storage;
+  if (!adminClient) {
+    console.warn('Avatar upload is using the anon Supabase client. Ensure storage RLS allows inserts or configure SUPABASE_SERVICE_ROLE_KEY.');
+  }
+
+  const { error: uploadError } = await storageClient
+    .from(AVATAR_BUCKET)
+    .upload(filename, file, { upsert: true, cacheControl: '3600' });
+
   if (uploadError) {
+    // Surface more helpful message when bucket truly does not exist
+    if (uploadError.message?.toLowerCase().includes('bucket not found')) {
+      return {
+        data: null,
+        error: {
+          message:
+            'Storage bucket for avatars was not found. Please ask an administrator to create it or set NEXT_PUBLIC_SUPABASE_AVATAR_BUCKET.',
+        },
+      };
+    }
+    if (uploadError.message?.toLowerCase().includes('row-level security')) {
+      return {
+        data: null,
+        error: {
+          message:
+            'Upload blocked by Supabase row-level security. Configure storage policies to allow uploads or set SUPABASE_SERVICE_ROLE_KEY.',
+        },
+      };
+    }
     return handleError(uploadError, 'Failed to upload avatar');
   }
 
-  const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(filename);
-  
-  if (!urlData.publicUrl) {
-    return { data: null, error: { message: 'Failed to get public URL for avatar' } };
+  const { data: urlData, error: publicUrlError } = storageClient.from(AVATAR_BUCKET).getPublicUrl(filename);
+
+  if (publicUrlError || !urlData.publicUrl) {
+    return {
+      data: null,
+      error: { message: publicUrlError?.message || 'Failed to get public URL for avatar' },
+    };
   }
 
   return { data: { publicUrl: urlData.publicUrl }, error: null };

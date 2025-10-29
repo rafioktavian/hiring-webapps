@@ -1,0 +1,35 @@
+import Image from 'next/image';
+
+export default function Loading() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-white">
+      <div className="flex flex-col items-center space-y-6">
+        {/* Logo */}
+        <div className="flex items-center gap-2">
+          <Image 
+            src="/images/rakamin-logo.png" 
+            alt="Rakamin" 
+            width={120} 
+            height={40}
+            className="h-10 w-auto"
+          />
+        </div>
+        
+        {/* Loading Animation */}
+        <div className="flex flex-col items-center space-y-4">
+          {/* Spinning Circle */}
+          <div className="relative">
+            <div className="h-16 w-16 animate-spin rounded-full border-4 border-gray-200"></div>
+            <div className="absolute top-0 left-0 h-16 w-16 animate-spin rounded-full border-4 border-transparent border-t-[#01959F]"></div>
+          </div>
+          
+          {/* Loading Text */}
+          <div className="text-center">
+            <p className="text-sm font-medium text-gray-700">Memuat halaman...</p>
+            <p className="text-xs text-gray-500 mt-1">Mohon tunggu sebentar</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

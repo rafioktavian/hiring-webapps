@@ -41,21 +41,8 @@ export default function LoginForm({ role }: LoginFormProps) {
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isLinkLoading, setIsLinkLoading] = useState(false);
 
-  const onSubmit = async (values: LoginFormValues) => {
-    const result = await loginWithEmail({
-      supabase,
-      email: values.email,
-      password: values.password,
-      expectedRole: role,
-    });
-
-    if (!result.success) {
-      toast.error(result.message);
-      return;
-    }
-
-    toast.success('Logged in successfully!');
-    router.push(result.redirect);
+  const goToLogin = async () => {
+    router.push(`/login`);
     router.refresh();
   };
 
@@ -78,8 +65,26 @@ export default function LoginForm({ role }: LoginFormProps) {
   };
 
   const handleMagicLink = async () => {
-    router.push(`/login-link`);
-    router.refresh();
+    const emailValue = form.getValues('email');
+    if (!emailValue) {
+      toast.error('Masukkan alamat email pada form di atas terlebih dahulu.');
+      return;
+    }
+    try {
+      setIsLinkLoading(true);
+      const result = await sendMagicLink({
+        supabase,
+        email: emailValue,
+      });
+      if (!result.success) {
+        toast.error(result.message);
+        return;
+      }
+      toast.success(result.message);
+      router.push(`/success-sent?email=${encodeURIComponent(emailValue)}&type=magic-link`);
+    } finally {
+      setIsLinkLoading(false);
+    }
   };
 
   const isSuperAdminForm = role === 'super_admin';
@@ -115,7 +120,7 @@ export default function LoginForm({ role }: LoginFormProps) {
           </div>
 
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="mt-6 space-y-6">
+            <form onSubmit={form.handleSubmit(handleMagicLink)} className="mt-6 space-y-6">
               <FormField
                 control={form.control}
                 name="email"
@@ -135,43 +140,6 @@ export default function LoginForm({ role }: LoginFormProps) {
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-sm font-medium text-slate-700">Kata sandi</FormLabel>
-                    <FormControl>
-                      <div className="relative">
-                        <Input
-                          type={isPasswordVisible ? 'text' : 'password'}
-                          placeholder="••••••••"
-                          className="h-12 rounded-lg border-2 border-slate-200 bg-transparent pr-12 text-sm text-slate-800 placeholder:text-slate-400 focus:border-[#01959F] focus:ring-0"
-                          {...field}
-                        />
-                        <button
-                          type="button"
-                          aria-label={isPasswordVisible ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi'}
-                          className="absolute inset-y-0 right-3 flex items-center text-slate-400 hover:text-[#01959F]"
-                          onClick={() => setIsPasswordVisible((prev) => !prev)}
-                        >
-                          {isPasswordVisible ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                        </button>
-                      </div>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {!isSuperAdminForm && (
-                <div className="flex justify-end">
-                  <Link href="/forgot-password" className="text-xs font-semibold text-[#01959F] hover:underline">
-                    Lupa kata sandi?
-                  </Link>
-                </div>
-              )}
-
               <Button
                 type="submit"
                 className="h-12 w-full rounded-lg bg-[#F7B500] text-base font-semibold text-[#404040] transition hover:bg-[#e6a300]"
@@ -183,7 +151,7 @@ export default function LoginForm({ role }: LoginFormProps) {
                     Memproses...
                   </>
                 ) : (
-                  'Masuk'
+                  'Kirim link'
                 )}
               </Button>
 
@@ -199,10 +167,10 @@ export default function LoginForm({ role }: LoginFormProps) {
                     type="button"
                     variant="outline"
                     className="flex h-12 w-full items-center justify-center gap-2 rounded-lg border-slate-200 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                    onClick={handleMagicLink}
+                    onClick={goToLogin}
                   >
-                    <Mail className="h-4 w-4" />
-                    Kirim link login melalui email
+                    <Image src="/images/leading-icon.svg" alt="Password" width={16} height={16} />
+                    Masuk dengan kata sandi
                   </Button>
 
                   <Button

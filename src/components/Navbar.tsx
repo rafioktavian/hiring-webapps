@@ -59,7 +59,7 @@ export default function Navbar() {
     <nav className="sticky top-0 z-40 border-b bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/70">
       <div className="container mx-auto px-4">
         <div className="flex h-16 items-center justify-between">
-          {isCandidateDetailPage ? (
+        {isCandidateDetailPage ? (
             <div className="flex items-center gap-3">
               <Link
                 href="/admin"
@@ -74,28 +74,9 @@ export default function Navbar() {
             </div>
           ) : (
             <Link href="/" className="text-2xl font-headline font-semibold text-primary">
-              HiringFlow
             </Link>
           )
           }
-
-          <div className="hidden items-center gap-6 md:flex">
-            {navLinks.map(({ href, label, icon: Icon }) => {
-              const isActive = pathname === href;
-              return (
-                <Link
-                  key={href}
-                  href={href}
-                  className={`flex items-center gap-2 text-sm transition-colors ${
-                    isActive ? "text-primary font-semibold" : "text-muted-foreground hover:text-primary"
-                  }`}
-                >
-                  <Icon size={18} />
-                  <span>{label}</span>
-                </Link>
-              );
-            })}
-          </div>
 
           <div className="flex items-center gap-3">
             {user ? (

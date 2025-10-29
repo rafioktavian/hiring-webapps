@@ -21,7 +21,6 @@ export default async function CandidatesPage({ params }: { params: { id: string 
     <div className="container mx-auto py-10 space-y-8">
       <div>
         <h1 className="text-3xl font-bold text-slate-900">{job?.title}</h1>
-        <p className="text-sm text-slate-500">Review and manage applications for this role.</p>
       </div>
       <CandidateTable candidates={candidates || []} jobTitle={job?.title || 'job'} />
     </div>

@@ -4,6 +4,7 @@ import { Toaster } from 'react-hot-toast';
 import AuthProvider from "@/contexts/AuthProvider";
 import Navbar from "@/components/Navbar";
 import StoreProvider from "@/components/providers/StoreProvider";
+import { PageTransitionLoader } from "@/components/ui/page-transition-loader";
 import { Nunito_Sans } from "next/font/google";
 
 const nunitoSans = Nunito_Sans({
@@ -28,6 +29,7 @@ export default function RootLayout({
       <body suppressHydrationWarning={true} className="font-sans">
         <AuthProvider>
           <StoreProvider>
+            <PageTransitionLoader />
             <Navbar />
             <main className="min-h-screen bg-gray-50 dark:bg-gray-900">
               {children}

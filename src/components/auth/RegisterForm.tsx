@@ -1,21 +1,22 @@
 'use client';
 import { useForm } from 'react-hook-form';
+import { useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { createClient } from '@/lib/supabase/client';
+import { registerCandidateWithEmail, sendMagicLink } from '@/lib/auth/service';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import Image from 'next/image';
+import { Loader2, Eye, EyeOff, Mail } from 'lucide-react';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '../ui/form';
 import Link from 'next/link';
 
 const registerSchema = z.object({
-    fullName: z.string().min(2, 'Full name must be at least 2 characters'),
-    email: z.string().email(),
-    password: z.string().min(6, 'Password must be at least 6 characters'),
+  email: z.string().email(),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
 });
 
 type RegisterFormValues = z.infer<typeof registerSchema>;
@@ -23,10 +24,12 @@ type RegisterFormValues = z.infer<typeof registerSchema>;
 export default function RegisterForm() {
   const router = useRouter();
   const supabase = createClient();
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [isLinkLoading, setIsLinkLoading] = useState(false);
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const form = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
-      fullName: '',
       email: '',
       password: '',
     },
@@ -35,151 +38,208 @@ export default function RegisterForm() {
   const { formState: { isSubmitting } } = form;
 
   const onEmailSubmit = async (values: RegisterFormValues) => {
-    const { fullName, email, password } = values;
-
-    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-            data: {
-                full_name: fullName,
-            }
-        }
+    const result = await registerCandidateWithEmail({
+      supabase,
+      email: values.email,
+      password: values.password,
     });
 
-    if (signUpError) {
-        toast.error(signUpError.message);
-        return;
+    if (!result.success) {
+      toast.error(result.message);
+      return;
     }
 
-    if (signUpData.user) {
-        // The profile is now created by a trigger, but we can double-check
-        // and insert if it somehow failed.
-        const { data: profile, error: profileError } = await supabase.from('profiles').select().eq('id', signUpData.user.id).single();
-        if (!profile) {
-            const { error: insertError } = await supabase.from('profiles').insert({
-                id: signUpData.user.id,
-                full_name: fullName,
-                email: email,
-                role: 'candidate',
-            });
-            if (insertError) {
-                toast.error(insertError.message);
-                // Manually delete the user if profile creation fails
-                await supabase.auth.admin.deleteUser(signUpData.user.id);
-                return;
-            }
-        }
-
-        toast.success('Registration successful! Please check your email to verify your account.');
-        router.push('/login');
-    }
+    toast.success(result.message);
+    router.push('/login');
   };
 
   const handleGoogleSignIn = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
+    try {
+      setIsGoogleLoading(true);
+      const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-            redirectTo: `${location.origin}/auth/callback`
-        }
-    });
+          redirectTo: `${location.origin}/auth/callback`,
+        },
+      });
 
-    if (error) {
+      if (error) {
         toast.error(error.message);
+      }
+    } finally {
+      setIsGoogleLoading(false);
+    }
+  };
+
+  const handleMagicLink = async () => {
+    const emailValue = form.getValues('email');
+    if (!emailValue) {
+      toast.error('Masukkan alamat email pada form di atas terlebih dahulu.');
+      return;
+    }
+    try {
+      setIsLinkLoading(true);
+      const result = await sendMagicLink({
+        supabase,
+        email: emailValue,
+      });
+      if (!result.success) {
+        toast.error(result.message);
+        return;
+      }
+      toast.success(result.message);
+      router.push(`/success-sent?email=${encodeURIComponent(emailValue)}&type=magic-link`);
+    } finally {
+      setIsLinkLoading(false);
     }
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-muted/40 p-4">
-      <Card className="w-full max-w-md shadow-lg">
-        <CardHeader className="text-center">
-          <CardTitle className="text-3xl font-headline">Find Your Next Role</CardTitle>
-          <CardDescription>
-            Create a candidate account to get started.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-            <Button variant="outline" className="w-full" onClick={handleGoogleSignIn}>
-                <Image
-                  src="/images/google-icon.svg"
-                  alt="Google icon"
-                  width={18}
-                  height={18}
-                  className="mr-2"
-                />
-                Continue with Google
-            </Button>
-            
-            <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-background px-2 text-muted-foreground">
-                    Or sign up with email
-                </span>
-                </div>
-            </div>
+    <div className="flex min-h-screen items-center justify-center bg-[#F6F8FA] px-4 py-12">
+      <div className="w-full max-w-sm space-y-8">
+        <div className="flex">
+          <div className="flex">
+            <Image 
+              src="/images/rakamin-logo.png" 
+              alt="Rakamin" 
+              width={120} 
+              height={40}
+              className="h-10 w-auto"
+            />
+          </div>
+        </div>
+
+        <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-[0_20px_60px_-30px_rgba(1,149,159,0.35)]">
+          <div className="space-y-2">
+            <h1 className="text-xl font-semibold text-slate-900">Bergabung dengan Rakamin</h1>
+            <p className="text-sm text-slate-600">
+              Sudah punya akun?{' '}
+              <Link href="/login" className="font-semibold text-[#01959F] hover:underline">
+                Masuk
+              </Link>
+            </p>
+          </div>
 
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onEmailSubmit)} className="space-y-4">
-                <FormField
-                    control={form.control}
-                    name="fullName"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Full Name</FormLabel>
-                            <FormControl>
-                                <Input placeholder="John Doe" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-                 <FormField
-                    control={form.control}
-                    name="email"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Email</FormLabel>
-                            <FormControl>
-                                <Input type="email" placeholder="you@example.com" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-                 <FormField
-                    control={form.control}
-                    name="password"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Password</FormLabel>
-                            <FormControl>
-                                <Input type="password" placeholder="••••••••" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-              <Button type="submit" className="w-full" disabled={isSubmitting}>
-                {isSubmitting ? 'Signing up...' : 'Sign Up with Email'}
+            <form onSubmit={form.handleSubmit(onEmailSubmit)} className="mt-6 space-y-6">
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-sm font-medium text-slate-700">Alamat email</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="email"
+                        placeholder="nama@email.com"
+                        className="h-12 rounded-lg border-2 border-slate-200 bg-transparent text-sm text-slate-800 placeholder:text-slate-400 focus:border-[#01959F] focus:ring-0"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-sm font-medium text-slate-700">Kata sandi</FormLabel>
+                    <FormControl>
+                      <div className="relative">
+                        <Input
+                          type={isPasswordVisible ? 'text' : 'password'}
+                          placeholder="••••••••"
+                          className="h-12 rounded-lg border-2 border-slate-200 bg-transparent pr-12 text-sm text-slate-800 placeholder:text-slate-400 focus:border-[#01959F] focus:ring-0"
+                          {...field}
+                        />
+                        <button
+                          type="button"
+                          aria-label={isPasswordVisible ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi'}
+                          className="absolute inset-y-0 right-3 flex items-center text-slate-400 hover:text-[#01959F]"
+                          onClick={() => setIsPasswordVisible((prev) => !prev)}
+                        >
+                          {isPasswordVisible ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                        </button>
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <Button
+                type="submit"
+                className="h-12 w-full rounded-lg bg-[#F7B500] text-base font-semibold text-[#404040] transition hover:bg-[#e6a300]"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Memproses...
+                  </>
+                ) : (
+                  'Daftar'
+                )}
+              </Button>
+
+              <div className="flex items-center gap-3">
+                <span className="h-px flex-1 bg-slate-200" />
+                <span className="text-xs uppercase tracking-wider text-slate-400">atau</span>
+                <span className="h-px flex-1 bg-slate-200" />
+              </div>
+
+              <Button
+                type="button"
+                variant="outline"
+                className="flex h-12 w-full items-center justify-center gap-2 rounded-lg border-slate-200 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                onClick={handleMagicLink}
+                disabled={isLinkLoading}
+              >
+                {isLinkLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Mengirim...
+                  </>
+                ) : (
+                  <>
+                    <Mail className="h-4 w-4" />
+                    Kirim link melalui email
+                  </>
+                )}
+              </Button>
+
+              <Button
+                type="button"
+                variant="outline"
+                className="flex h-12 w-full items-center justify-center gap-2 rounded-lg border-slate-200 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                onClick={handleGoogleSignIn}
+                disabled={isGoogleLoading}
+              >
+                {isGoogleLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Menghubungkan...
+                  </>
+                ) : (
+                  <>
+                    <Image src="/images/google-icon.svg" alt="Google" width={20} height={20} />
+                    Daftar dengan Google
+                  </>
+                )}
               </Button>
             </form>
           </Form>
-        </CardContent>
-        <CardFooter className="flex flex-col gap-4 text-sm">
-          <p>
-            Already have an account?{' '}
-            <Link href="/login" className="font-semibold text-primary hover:underline">
-               Login here
-            </Link>
-          </p>
-           <Link href="/" className="text-muted-foreground hover:text-primary">
-            Back to Home
+        </div>
+
+        <div className="text-center text-sm text-slate-500">
+          <Link href="/" className="hover:text-[#01959F]">
+            Kembali ke beranda
           </Link>
-        </CardFooter>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }

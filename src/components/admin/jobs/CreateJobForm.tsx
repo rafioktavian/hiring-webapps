@@ -36,6 +36,7 @@ import {
   resetFormBuilder,
   type FieldStatus,
 } from '@/lib/redux/features/formBuilder/formBuilderSlice';
+import { Loader2 } from 'lucide-react';
 
 type CreateJobFormProps = {
   onSuccess?: () => Promise<void> | void;
@@ -416,9 +417,14 @@ export function CreateJobForm({
 
         <div className="flex justify-end">
           <Button type="submit" disabled={form.formState.isSubmitting}>
-            {form.formState.isSubmitting
-              ? isEditMode ? 'Saving...' : 'Publishing...'
-              : isEditMode ? 'Save Changes' : 'Publish Job'}
+            {form.formState.isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                {isEditMode ? 'Saving...' : 'Publishing...'}
+              </>
+            ) : (
+              isEditMode ? 'Save Changes' : 'Publish Job'
+            )}
           </Button>
         </div>
       </form>

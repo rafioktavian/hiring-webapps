@@ -1,6 +1,10 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* 3rd-party styles */
+@import 'react-date-picker/dist/DatePicker.css';
+@import 'react-calendar/dist/Calendar.css';
  
 @layer base {
   :root {
@@ -78,4 +82,9 @@
   h1, h2, h3, h4, h5, h6 {
     @apply font-headline;
   }
+}
+
+/* react-date-picker helper: remove inner wrapper border when parent has .border-none */
+.border-none .react-date-picker__wrapper {
+  border: none !important;
 }

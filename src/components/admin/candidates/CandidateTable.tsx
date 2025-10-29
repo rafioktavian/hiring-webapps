@@ -85,15 +85,8 @@ export function CandidateTable({ candidates, jobTitle }: CandidateTableProps) {
           Export CSV
         </Button>
       </div>
-
-      <div className="space-y-4">
-        <div className="flex justify-end">
-          <Button onClick={handleExport} variant="outline" className="border-primary text-primary hover:bg-primary hover:text-white">
-            <Download className="mr-2 h-4 w-4" />
-            Export CSV
-          </Button>
-        </div>
-        <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+      <div className="border rounded-lg">
+        <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-md m-4">
         <div className="min-w-full overflow-x-auto">
           <table className="w-full">
             <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">

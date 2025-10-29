@@ -1,5 +1,5 @@
 import { getJobs } from '@/lib/actions';
-import { JobCard } from '@/components/jobs/JobCard';
+import { CandidateJobBoard } from '@/components/jobs/CandidateJobBoard';
 
 export const revalidate = 60; // Revalidate every 60 seconds
 
@@ -24,11 +24,9 @@ export default async function JobsPage() {
           <p className="text-center text-muted-foreground">No active job openings at the moment. Please check back later.</p>
         )}
 
-        <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
-          {activeJobs.map((job) => (
-            <JobCard key={job.id} job={job} />
-          ))}
-        </div>
+        {activeJobs.length > 0 && (
+          <CandidateJobBoard jobs={activeJobs} />
+        )}
       </div>
     </div>
   );
