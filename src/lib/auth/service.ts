@@ -52,7 +52,11 @@ export async function loginWithEmail({
   }
 
   const allowedRoles =
-    expectedRole === 'super_admin' ? (['super_admin'] as Role[]) : (['admin', 'super_admin'] as Role[]);
+    expectedRole === 'super_admin'
+      ? (['super_admin'] as Role[])
+      : expectedRole === 'admin'
+        ? (['admin', 'super_admin'] as Role[])
+        : (['candidate'] as Role[]); // Add candidate role here
 
   if (!allowedRoles.includes(userRole)) {
     await supabase.auth.signOut();
@@ -60,7 +64,7 @@ export async function loginWithEmail({
   }
 
   const redirect =
-    userRole === 'super_admin' ? '/super-admin/dashboard' : userRole === 'admin' ? '/admin' : '/';
+    userRole === 'super_admin' ? '/super-admin/dashboard' : userRole === 'admin' ? '/admin' : userRole === 'candidate' ? '/jobs' : '/';
 
   return { success: true, redirect, role: userRole };
 }
