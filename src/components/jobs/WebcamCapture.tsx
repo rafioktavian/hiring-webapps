@@ -98,6 +98,7 @@ export function WebcamCapture({ onCapture }: WebcamCaptureProps) {
   const gestureEstimatorRef = useRef<fp.GestureEstimator | null>(null);
   const poseHoldRef = useRef(0);
   const countdownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [error, setError] = useState<string | null>(null); // New error state
 
   if (!gestureEstimatorRef.current) {
     gestureEstimatorRef.current = new fp.GestureEstimator(poseSequence.map((pose) => pose.gesture));
@@ -112,13 +113,15 @@ export function WebcamCapture({ onCapture }: WebcamCaptureProps) {
 
   const loadHandposeModel = useCallback(async () => {
     try {
+      setError(null); // Clear previous errors
       await tf.setBackend('webgl');
       const loadedModel = await handpose.load();
       setModel(loadedModel);
       setStatusMessage('Ready to start. Click "Start Gesture Capture".');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to load handpose model', error);
       setStatusMessage('Error Loading.... Please refresh.');
+      setError(error.message || 'Failed to load handpose model.'); // Set error state
     }
   }, [setStatusMessage]);
 
@@ -167,66 +170,72 @@ export function WebcamCapture({ onCapture }: WebcamCaptureProps) {
 
   const detect = useCallback(
     async (net: handpose.HandPose) => {
-      if (
-        webcamRef.current &&
-        typeof webcamRef.current.getScreenshot === 'function' &&
-        webcamRef.current.video?.readyState === 4
-      ) {
-        const video = webcamRef.current.video;
-        const hands = await net.estimateHands(video);
+      try {
+        setError(null); // Clear previous errors
+        if (
+          webcamRef.current &&
+          typeof webcamRef.current.getScreenshot === 'function' &&
+          webcamRef.current.video?.readyState === 4
+        ) {
+          const video = webcamRef.current.video;
+          const hands = await net.estimateHands(video);
 
-        if (hands.length > 0) {
-          const hand = hands[0];
+          if (hands.length > 0) {
+            const hand = hands[0];
 
-          if (hand.boundingBox) {
-            const [x1, y1] = hand.boundingBox.topLeft as [number, number];
-            const [x2, y2] = hand.boundingBox.bottomRight as [number, number];
-            const videoWidth = video.videoWidth;
-            const videoHeight = video.videoHeight;
-            const displayedWidth = video.clientWidth;
-            const displayedHeight = video.clientHeight;
-            const scaleX = displayedWidth / videoWidth;
-            const scaleY = displayedHeight / videoHeight;
-            setHandBox({
-              left: x1 * scaleX,
-              top: y1 * scaleY,
-              width: (x2 - x1) * scaleX,
-              height: (y2 - y1) * scaleY,
-            });
-          }
+            if (hand.boundingBox) {
+              const [x1, y1] = hand.boundingBox.topLeft as [number, number];
+              const [x2, y2] = hand.boundingBox.bottomRight as [number, number];
+              const videoWidth = video.videoWidth;
+              const videoHeight = video.videoHeight;
+              const displayedWidth = video.clientWidth;
+              const displayedHeight = video.clientHeight;
+              const scaleX = displayedWidth / videoWidth;
+              const scaleY = displayedHeight / videoHeight;
+              setHandBox({
+                left: x1 * scaleX,
+                top: y1 * scaleY,
+                width: (x2 - x1) * scaleX,
+                height: (y2 - y1) * scaleY,
+              });
+            }
 
-          const estimator = gestureEstimatorRef.current;
-          if (estimator) {
-            const fingerposeLandmarks = convertToFingerposeLandmarks(hand.landmarks);
-            const estimation = await estimator.estimate(fingerposeLandmarks, 8);
+            const estimator = gestureEstimatorRef.current;
+            if (estimator) {
+              const fingerposeLandmarks = convertToFingerposeLandmarks(hand.landmarks);
+              const estimation = await estimator.estimate(fingerposeLandmarks, 8);
 
-            if (estimation.gestures && estimation.gestures.length > 0) {
-              const topGesture = estimation.gestures.reduce((prev, current) =>
-                prev.score > current.score ? prev : current
-              );
-              const matchedIndex = poseSequence.findIndex((pose) => pose.id === topGesture.name);
-              const aboveThreshold = topGesture.score > 0.9;
+              if (estimation.gestures && estimation.gestures.length > 0) {
+                const topGesture = estimation.gestures.reduce((prev, current) =>
+                  prev.score > current.score ? prev : current
+                );
+                const matchedIndex = poseSequence.findIndex((pose) => pose.id === topGesture.name);
+                const aboveThreshold = topGesture.score > 0.9;
 
-              if (matchedIndex >= 0 && aboveThreshold) {
-                if (matchedIndex === currentPoseIndex) {
-                  setPoseFeedback((prev) => (prev === 'match' ? prev : 'match'));
-                  poseHoldRef.current += 1;
+                if (matchedIndex >= 0 && aboveThreshold) {
+                  if (matchedIndex === currentPoseIndex) {
+                    setPoseFeedback((prev) => (prev === 'match' ? prev : 'match'));
+                    poseHoldRef.current += 1;
 
-                  const HOLD_FRAMES = 5;
-                  if (poseHoldRef.current >= HOLD_FRAMES) {
-                    poseHoldRef.current = 0;
-                    setCompletedPoses((prev) =>
-                      prev.includes(currentPoseIndex) ? prev : [...prev, currentPoseIndex]
-                    );
+                    const HOLD_FRAMES = 5;
+                    if (poseHoldRef.current >= HOLD_FRAMES) {
+                      poseHoldRef.current = 0;
+                      setCompletedPoses((prev) =>
+                        prev.includes(currentPoseIndex) ? prev : [...prev, currentPoseIndex]
+                      );
 
-                    if (currentPoseIndex === poseSequence.length - 1) {
-                      startCountdown();
-                    } else {
-                      const nextIndex = currentPoseIndex + 1;
-                      setCurrentPoseIndex(nextIndex);
-                      setPoseFeedback(null);
-                      setStatusMessage(posePrompts[nextIndex]);
+                      if (currentPoseIndex === poseSequence.length - 1) {
+                        startCountdown();
+                      } else {
+                        const nextIndex = currentPoseIndex + 1;
+                        setCurrentPoseIndex(nextIndex);
+                        setPoseFeedback(null);
+                        setStatusMessage(posePrompts[nextIndex]);
+                      }
                     }
+                  } else {
+                    poseHoldRef.current = 0;
+                    setPoseFeedback((prev) => (prev === 'wrong' ? prev : 'wrong'));
                   }
                 } else {
                   poseHoldRef.current = 0;
@@ -236,16 +245,17 @@ export function WebcamCapture({ onCapture }: WebcamCaptureProps) {
                 poseHoldRef.current = 0;
                 setPoseFeedback((prev) => (prev === 'wrong' ? prev : 'wrong'));
               }
-            } else {
-              poseHoldRef.current = 0;
-              setPoseFeedback((prev) => (prev === 'wrong' ? prev : 'wrong'));
             }
+          } else {
+            poseHoldRef.current = 0;
+            setPoseFeedback(null);
+            setHandBox(null);
           }
-        } else {
-          poseHoldRef.current = 0;
-          setPoseFeedback(null);
-          setHandBox(null);
         }
+      } catch (error: any) {
+        console.error('Error during pose detection', error);
+        setError(error.message || 'Error during pose detection.');
+        setStatusMessage('Error during detection.');
       }
     },
     [currentPoseIndex, setStatusMessage, startCountdown, webcamRef]
@@ -333,12 +343,19 @@ export function WebcamCapture({ onCapture }: WebcamCaptureProps) {
         <Loader2 className="h-8 w-8 animate-spin mb-4 text-muted-foreground" />
         <p className="font-medium">Loading...</p>
         <p className="text-sm text-muted-foreground">Please wait a moment...</p>
+        {error && <p className="text-sm text-red-500 mt-2">Error: {error}</p>}
       </div>
     );
   }
 
   return (
     <div className="w-full space-y-2">
+      {error && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md relative mb-4" role="alert">
+          <strong className="font-bold">Error!</strong>
+          <span className="block sm:inline"> {error}</span>
+        </div>
+      )}
       <div className="w-full aspect-video bg-muted rounded-lg overflow-hidden relative flex items-center justify-center">
         {imgSrc ? (
           <img src={imgSrc} alt="capture" className="h-full w-full object-cover" />
