@@ -183,17 +183,9 @@ export async function applyForJob(formData: FormData) {
     domicile: formData.get('domicile') as string | undefined,
     gender: formData.get('gender') as string | undefined,
     photo_profile_url: formData.get('photo_profile_url') as string | undefined,
-    details: {}, // Store extra fields here
   };
-  
-  // This part is a bit tricky without knowing all possible dynamic fields
-  // A simple approach:
-  const knownFields = ['job_id', 'full_name', 'email', 'phone_number', 'linkedin_link', 'domicile', 'gender', 'photo_profile_url'];
-  formData.forEach((value, key) => {
-    if (!knownFields.includes(key) && candidateData.details) {
-      (candidateData.details as any)[key] = value;
-    }
-  });
+  // Note: We intentionally avoid inserting 'details'
+  // because some environments/tables may not have this column.
 
 
   const { error } = await supabase.from('candidates').insert([candidateData]);
@@ -255,14 +247,21 @@ export async function uploadAvatar(formData: FormData) {
     return handleError(uploadError, 'Failed to upload avatar');
   }
 
-  const { data: urlData, error: publicUrlError } = storageClient.from(AVATAR_BUCKET).getPublicUrl(filename);
+  const { data: publicUrlData, error: publicUrlError } = storageClient.from(AVATAR_BUCKET).getPublicUrl(filename) as any;
 
-  if (publicUrlError || !urlData.publicUrl) {
+  if (publicUrlError) {
     return {
       data: null,
-      error: { message: publicUrlError?.message || 'Failed to get public URL for avatar' },
+      error: { message: publicUrlError.message || 'Failed to get public URL for avatar' },
     };
   }
 
-  return { data: { publicUrl: urlData.publicUrl }, error: null };
+  if (!publicUrlData || !publicUrlData.publicUrl) {
+    return {
+      data: null,
+      error: { message: 'Failed to get public URL for avatar: public URL not found in data.' },
+    };
+  }
+
+  return { data: { publicUrl: publicUrlData.publicUrl }, error: null };
 }

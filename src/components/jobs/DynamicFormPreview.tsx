@@ -200,7 +200,7 @@ export function DynamicFormPreview({ fields, onPhotoCapture }: DynamicFormPrevie
             <FormMessage />
 
             <Dialog open={isCaptureModalOpen} onOpenChange={setIsCaptureModalOpen}>
-              <DialogContent className="max-w-3xl border border-slate-200 p-0">
+              <DialogContent className="max-w-3xl border border-slate-200 p-0 overflow-y-auto max-h-[90vh]">
                 <DialogHeader className="border-b border-slate-200 px-6 py-4">
                   <DialogTitle className="text-lg font-semibold text-slate-800">
                     Raise Your Hand to Capture

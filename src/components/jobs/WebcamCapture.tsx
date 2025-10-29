@@ -11,6 +11,22 @@ import { useToast } from '@/hooks/use-toast';
 import { Camera, RefreshCw, UploadCloud, Loader2 } from 'lucide-react';
 import { Button } from '../ui/button';
 
+// Manually define Keypoint3D based on fingerpose's internal expectations
+interface Keypoint3D {
+  x: number;
+  y: number;
+  z: number;
+}
+
+// Helper to convert handpose landmarks to fingerpose Keypoint3D format
+function convertToFingerposeLandmarks(landmarks: handpose.AnnotatedPrediction['landmarks']): Keypoint3D[] {
+  return landmarks.map(([x, y, z]) => ({
+    x,
+    y,
+    z: z ?? 0, // z is optional and can be undefined, default to 0
+  }));
+}
+
 interface WebcamCaptureProps {
   onCapture: (url: string) => void;
 }
@@ -181,7 +197,8 @@ export function WebcamCapture({ onCapture }: WebcamCaptureProps) {
 
           const estimator = gestureEstimatorRef.current;
           if (estimator) {
-            const estimation = await estimator.estimate(hand.landmarks, 8);
+            const fingerposeLandmarks = convertToFingerposeLandmarks(hand.landmarks);
+            const estimation = await estimator.estimate(fingerposeLandmarks, 8);
 
             if (estimation.gestures && estimation.gestures.length > 0) {
               const topGesture = estimation.gestures.reduce((prev, current) =>

@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useMemo, useState } from 'react';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useRouter } from 'next/navigation';
 
 interface ApplyFormProps {
   job: Job;
@@ -18,6 +19,7 @@ interface ApplyFormProps {
 export function ApplyForm({ job }: ApplyFormProps) {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const router = useRouter();
 
   const rawFields = ((job.application_form as any)?.fields || []) as Array<{ key: string; label: string; status?: string; required?: boolean }>;
   
@@ -141,6 +143,7 @@ export function ApplyForm({ job }: ApplyFormProps) {
         });
         methods.reset();
         setPhotoUrl(null);
+        router.push(`/jobs/${job.id}/success-apply`);
       }
     } finally {
       setIsSubmitting(false);

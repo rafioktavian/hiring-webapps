@@ -3,7 +3,7 @@ import { CandidateTable } from '@/components/admin/candidates/CandidateTable';
 import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
 
-export default async function CandidatesPage({ params }: { params: { id: string } }) {
+export default async function CandidatesPage({ params }: any) {
   const { data: candidates, error: candidatesError } = await getCandidatesByJobId(params.id);
   const { data: job, error: jobError } = await getJobById(params.id);
 

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthProvider";
 import { Button } from "./ui/button";
+import React from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -19,6 +20,7 @@ export default function Navbar() {
   const { user, role, logout } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
+  const [isLoggingOut, setIsLoggingOut] = React.useState(false);
 
   const initials = (() => {
     if (!user?.email) return "HF";
@@ -56,6 +58,7 @@ export default function Navbar() {
   }
 
   return (
+    <>
     <nav className="sticky top-0 z-40 border-b bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/70">
       <div className="container mx-auto px-4">
         <div className="flex h-16 items-center justify-between">
@@ -110,7 +113,13 @@ export default function Navbar() {
                     <button
                       type="button"
                       onClick={async () => {
-                        await logout();
+                        try {
+                          setIsLoggingOut(true);
+                          await logout();
+                        } finally {
+                          // Keep overlay until route changes; fallback to hide after short delay
+                          setTimeout(() => setIsLoggingOut(false), 1500);
+                        }
                       }}
                       className="w-full cursor-pointer text-left text-sm text-destructive focus:text-destructive"
                     >
@@ -139,5 +148,17 @@ export default function Navbar() {
         </div>
       </div>
     </nav>
+    {isLoggingOut && (
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-white/90 backdrop-blur-sm">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="relative">
+            <div className="h-12 w-12 animate-spin rounded-full border-4 border-gray-200"></div>
+            <div className="absolute top-0 left-0 h-12 w-12 animate-spin rounded-full border-4 border-transparent border-t-[#01959F]"></div>
+          </div>
+          <p className="text-sm text-gray-600">Logging out...</p>
+        </div>
+      </div>
+    )}
+    </>
   );
 }

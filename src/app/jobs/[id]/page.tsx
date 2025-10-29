@@ -5,7 +5,7 @@ import { ArrowLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 
-export default async function JobDetailsPage({ params }: { params: { id: string } }) {
+export default async function JobDetailsPage({ params }: any) {
   // Check if user is authenticated
   const supabase = createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
