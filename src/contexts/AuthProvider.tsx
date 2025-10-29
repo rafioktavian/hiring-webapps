@@ -78,7 +78,9 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = async () => {
-    await supabase.auth.signOut();
+    // Do not await signOut to make the logout process feel instant.
+    // The network request will proceed in the background.
+    supabase.auth.signOut();
     setUser(null);
     setSession(null);
     setProfile(null);
