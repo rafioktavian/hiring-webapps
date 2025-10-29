@@ -28,19 +28,6 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
-    const getSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setSession(session);
-      setUser(session?.user ?? null);
-      if(session?.user) {
-        const { data: userProfile } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
-        setProfile(userProfile as Profile);
-        setRole((userProfile as Profile)?.role);
-      }
-      setLoading(false);
-    }
-    getSession();
-
     const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
