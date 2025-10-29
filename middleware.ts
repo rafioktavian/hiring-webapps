@@ -59,6 +59,11 @@ export async function middleware(req: NextRequest) {
       return NextResponse.redirect(new URL('/', req.url))
     }
 
+    // Redirect authenticated candidates to /jobs if they try to access the root path
+    if (session && role === 'candidate' && pathname === '/') {
+      return NextResponse.redirect(new URL('/jobs', req.url));
+    }
+
     if (pathname === '/login' || pathname === '/register' || pathname === '/super-admin/login') {
         if (role === 'candidate') return NextResponse.redirect(new URL('/jobs', req.url));
         if (role === 'admin') return NextResponse.redirect(new URL('/admin', req.url));
