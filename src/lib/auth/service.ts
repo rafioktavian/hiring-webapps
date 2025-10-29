@@ -9,7 +9,7 @@ export type LoginParams = {
   supabase: SupabaseClient;
   email: string;
   password: string;
-  expectedRole: 'admin' | 'super_admin';
+  expectedRole: 'admin' | 'super_admin' | 'candidate';
 };
 
 export type LoginResult =

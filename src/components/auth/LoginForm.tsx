@@ -23,7 +23,7 @@ const loginSchema = z.object({
 type LoginFormValues = z.infer<typeof loginSchema>;
 
 interface LoginFormProps {
-  role: 'admin' | 'super_admin';
+  role: 'admin' | 'super_admin' | 'candidate';
 }
 
 export default function LoginForm({ role }: LoginFormProps) {
@@ -65,9 +65,7 @@ export default function LoginForm({ role }: LoginFormProps) {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: process.env.NEXT_PUBLIC_SITE_URL
-            ? `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`
-            : `${location.origin}/auth/callback`,
+          redirectTo: `${location.origin}/auth/callback`,
         },
       });
 
