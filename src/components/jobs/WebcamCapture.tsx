@@ -181,7 +181,8 @@ export function WebcamCapture({ onCapture }: WebcamCaptureProps) {
 
           const estimator = gestureEstimatorRef.current;
           if (estimator) {
-            const estimation = await estimator.estimate(hand.landmarks, 8);
+            const landmarks3D = hand.landmarks as unknown as {x: number; y: number; z: number}[];
+            const estimation = await estimator.estimate(landmarks3D, 8);
 
             if (estimation.gestures && estimation.gestures.length > 0) {
               const topGesture = estimation.gestures.reduce((prev, current) =>
